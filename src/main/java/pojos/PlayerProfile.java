@@ -19,6 +19,7 @@ public class PlayerProfile {
     private long timezone_id;
     private String username;
     private String email;
+    private String name;
     private String surname;
     private String gender;
     private String phone_number;

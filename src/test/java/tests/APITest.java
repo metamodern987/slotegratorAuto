@@ -1,6 +1,8 @@
 package tests;
 
 import generators.CredentialsGen;
+import generators.PlayerGen;
+import generators.PlayerLoginGen;
 import io.restassured.http.ContentType;
 import org.junit.Assert;
 import org.junit.Test;
@@ -16,75 +18,42 @@ import static io.restassured.RestAssured.given;
 
 public class APITest {
 
-    protected static final String AUTH_USERNAME = "front_2d6b0a8391742f5d789d7d915755e09e";
-    protected static final String BASE_URL = "http://test-api.d6.dev.devcaz.com";
-    protected static final String AUTH_URL = BASE_URL + "/v2/oauth2/token";
-    protected static final String REGISTER_URL = BASE_URL + "/v2/players";
 
     @Test
     public void getTokenGuest(){
 
         Credentials creds = CredentialsGen.getCreds();
-
         Token token = RestWrapper.getTokenGuest(creds);
 
         Assert.assertTrue(token.getAccess_token() != null);
-
 
     }
 
     @Test
     public void registerPlayer(){
 
-        PlayerRequest newPlayerRequest = new PlayerRequest();
-        newPlayerRequest.setUsername("autouser1");
-        newPlayerRequest.setPassword_change("amFuZWRvZTEyMw==");
-        newPlayerRequest.setPassword_repeat("amFuZWRvZTEyMw==");
-        newPlayerRequest.setEmail("autouser1@example.com");
-        newPlayerRequest.setName("Auto");
-        newPlayerRequest.setSurname("User");
-        newPlayerRequest.setCurrency_code("RUB");
-
+        PlayerRequest newPlayerRequest = PlayerGen.getNewPlayer();
         Credentials creds = CredentialsGen.getCreds();
         Token token = RestWrapper.getTokenGuest(creds);
-
         String bearerToken = token.getAccess_token();
 
-        PlayerProfile newPlayer = given().headers(
-                "Authorization",
-                "Bearer " + bearerToken)
-                                        .contentType(ContentType.JSON)
-                                        .body(newPlayerRequest)
+        PlayerProfile newPlayer = RestWrapper.registerNewPlayer(newPlayerRequest, bearerToken);
 
-                                .expect()
-                                    .statusCode(201)
-                                .when()
-                                     .post(REGISTER_URL)
-                                .then()
-                                     .log().all().extract().body().as(PlayerProfile.class);
-
-        Assert.assertTrue(newPlayer.getUsername().contains("autouser1"));
+        Assert.assertTrue(newPlayer.getUsername().contains(newPlayerRequest.getUsername()));
     }
 
     @Test
     public void loginPlayer(){
+        PlayerRequest newPlayerRequest = PlayerGen.getNewPlayer();
+        Credentials creds = CredentialsGen.getCreds();
+        Token token = RestWrapper.getTokenGuest(creds);
+        String bearerToken = token.getAccess_token();
 
-        PlayerLoginRequest loginPl = new PlayerLoginRequest();
-        loginPl.setGrant_type("password");
-        loginPl.setUsername("autouser");
-        loginPl.setPassword("amFuZWRvZTEyMw==");
+        PlayerProfile newPlayer = RestWrapper.registerNewPlayer(newPlayerRequest, bearerToken);
 
-        Token tokenPlayer = given()
-                           //.accept("application/json")
-                             .contentType(ContentType.JSON)
-                             .body(loginPl)
-                             .auth().preemptive().basic(AUTH_USERNAME, "")
-                .expect()
-                      .statusCode(200)
-                .when()
-                      .post(AUTH_URL)
-                .then()
-                      .log().all().extract().body().as(Token.class);
+        PlayerLoginRequest loginPl = PlayerLoginGen.createPlayerLoginReq(newPlayer.getUsername(), newPlayerRequest.getPassword_change());
+
+        Token tokenPlayer = RestWrapper.getTokenPlayer(loginPl);
 
         Assert.assertTrue(tokenPlayer.getAccess_token() != null);
 
@@ -92,6 +61,33 @@ public class APITest {
 
     @Test
     public void getPlayerById(){
+        PlayerRequest newPlayerRequest = PlayerGen.getNewPlayer();
+        Credentials creds = CredentialsGen.getCreds();
+        Token token = RestWrapper.getTokenGuest(creds);
+        String bearerToken = token.getAccess_token();
 
+        PlayerProfile newPlayer = RestWrapper.registerNewPlayer(newPlayerRequest, bearerToken);
+
+        PlayerLoginRequest loginPl = PlayerLoginGen.createPlayerLoginReq(newPlayer.getUsername(), newPlayerRequest.getPassword_change());
+
+        Token tokenPlayer = RestWrapper.getTokenPlayer(loginPl);
+        PlayerProfile[] currentPlayer = RestWrapper.getProtectedPlayer(tokenPlayer.getAccess_token());
+
+
+    }
+
+    @Test
+    public void getAnotherPlayer(){
+        PlayerRequest newPlayerRequest = PlayerGen.getNewPlayer();
+        Credentials creds = CredentialsGen.getCreds();
+        Token token = RestWrapper.getTokenGuest(creds);
+        String bearerToken = token.getAccess_token();
+
+        PlayerProfile newPlayer = RestWrapper.registerNewPlayer(newPlayerRequest, bearerToken);
+
+        PlayerLoginRequest loginPl = PlayerLoginGen.createPlayerLoginReq(newPlayer.getUsername(), newPlayerRequest.getPassword_change());
+
+        Token tokenPlayer = RestWrapper.getTokenPlayer(loginPl);
+        Response resp = RestWrapper.getAnotherPlayerById(tokenPlayer.getAccess_token());
     }
 }
